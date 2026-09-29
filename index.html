@@ -1,0 +1,732 @@
+<title>Sistemas Automáticos 2.° B</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: tablero de control. Cada parte del sistema tiene su color de señal:
+   entrada (sensor) = verde azulado, proceso (controlador) = ámbar, salida (actuador) = coral. */
+:root{
+  --bg:#eef2f4; --panel:#ffffff; --ink:#15212b; --muted:#56656f; --line:#cfd8de;
+  --sensor:#0b7f82; --sensor-soft:#d7eeee;
+  --ctrl:#b67800; --ctrl-soft:#f8ebcc;
+  --act:#d2462a; --act-soft:#fbe0d9;
+  --ok:#2f8a3c; --ok-soft:#dcf0de; --bad:#c0392b; --bad-soft:#f8dcd8;
+  --water:#2e7fd6; --glow:#ffd24a;
+  --f-display:"Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --f-body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", Consolas, "Courier New", monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0f171d; --panel:#172229; --ink:#e6edf1; --muted:#9aabb6; --line:#2b3a44;
+  --sensor:#3cc3c6; --sensor-soft:#12383b; --ctrl:#f0b33a; --ctrl-soft:#3a2e12;
+  --act:#ff7a5c; --act-soft:#43221a; --ok:#5cc46b; --ok-soft:#173a1d; --bad:#ff6b5b; --bad-soft:#44201c;
+  --water:#63a8f0; --glow:#ffd24a; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0f171d; --panel:#172229; --ink:#e6edf1; --muted:#9aabb6; --line:#2b3a44;
+  --sensor:#3cc3c6; --sensor-soft:#12383b; --ctrl:#f0b33a; --ctrl-soft:#3a2e12;
+  --act:#ff7a5c; --act-soft:#43221a; --ok:#5cc46b; --ok-soft:#173a1d; --bad:#ff6b5b; --bad-soft:#44201c;
+  --water:#63a8f0; --glow:#ffd24a; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:17px;line-height:1.6;padding-inline:16px;padding-block:0 64px}
+.wrap{max-width:1040px;margin-inline:auto}
+h1,h2,h3{font-family:var(--f-display);line-height:1.15;text-wrap:balance;margin:0}
+h1{font-size:clamp(2rem,6vw,3.4rem);font-weight:700;letter-spacing:-.01em}
+h2{font-size:clamp(1.5rem,4vw,2.1rem);font-weight:700}
+h3{font-size:1.15rem;font-weight:600}
+p{margin:0}
+.mono{font-family:var(--f-mono)}
+.muted{color:var(--muted)}
+button{font:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid var(--ctrl);outline-offset:2px}
+
+/* ---------- navegación ---------- */
+nav.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);border-bottom:1px solid var(--line);margin-inline:-16px;padding:10px 16px}
+nav.top .wrap{display:flex;gap:6px;overflow-x:auto;scrollbar-width:thin}
+nav.top a{flex:none;text-decoration:none;color:var(--ink);font-family:var(--f-display);font-weight:600;font-size:.9rem;padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:var(--panel)}
+nav.top a:hover{border-color:var(--ctrl)}
+nav.top a.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+/* ---------- encabezado ---------- */
+header.hero{padding-block:36px 28px;display:grid;grid-template-columns:1.1fr 1fr;gap:32px;align-items:center}
+@media (max-width:820px){header.hero{grid-template-columns:1fr}}
+.school{display:flex;flex-wrap:wrap;gap:8px 18px;font-family:var(--f-mono);font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:14px}
+.school b{color:var(--ink)}
+.lede{font-size:1.15rem;margin-top:14px;max-width:34em}
+.pat{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+.chip{font-family:var(--f-mono);font-size:.8rem;font-weight:700;padding:4px 10px;border-radius:6px}
+.c-s{background:var(--sensor-soft);color:var(--sensor)} .c-c{background:var(--ctrl-soft);color:var(--ctrl)} .c-a{background:var(--act-soft);color:var(--act)}
+
+/* puerta automática */
+.door-demo{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+.door-stage{position:relative;height:210px;border-radius:8px;overflow:hidden;background:linear-gradient(var(--sensor-soft),var(--bg))}
+.frame{position:absolute;left:50%;transform:translateX(-50%);bottom:0;width:170px;height:170px;border:6px solid var(--muted);border-bottom:none;overflow:hidden;background:var(--bg)}
+.leaf{position:absolute;top:0;bottom:0;width:50%;background:color-mix(in srgb,var(--sensor) 22%,var(--panel));border:2px solid var(--line);transition:transform .9s cubic-bezier(.4,0,.2,1)}
+.leaf.l{left:0}.leaf.r{right:0}
+.door-demo.open .leaf.l{transform:translateX(-100%)} .door-demo.open .leaf.r{transform:translateX(100%)}
+.eye{position:absolute;left:50%;top:14px;transform:translateX(-50%);width:34px;height:14px;border-radius:0 0 18px 18px;background:var(--muted)}
+.eye::after{content:"";position:absolute;left:50%;top:3px;width:8px;height:8px;margin-left:-4px;border-radius:50%;background:var(--line);transition:.2s}
+.door-demo.seen .eye::after{background:var(--sensor);box-shadow:0 0 10px var(--sensor)}
+.beam{position:absolute;left:50%;top:28px;width:0;height:0;border-left:70px solid transparent;border-right:70px solid transparent;border-top:150px solid color-mix(in srgb,var(--sensor) 18%,transparent);transform:translateX(-50%) rotate(180deg);transform-origin:center;opacity:0;transition:.3s}
+.door-demo.seen .beam{opacity:1}
+.person{position:absolute;bottom:0;left:-60px;width:34px;transition:left 1.4s ease}
+.person i{display:block;width:22px;height:22px;border-radius:50%;background:var(--act);margin:0 auto 3px}
+.person b{display:block;width:34px;height:58px;border-radius:14px 14px 4px 4px;background:var(--act)}
+.door-demo.near .person{left:calc(50% - 110px)}
+.door-demo.through .person{left:calc(50% - 17px);opacity:.35}
+.flow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.node{border:2px solid var(--line);border-radius:8px;padding:8px;font-size:.85rem;line-height:1.3;transition:.25s;background:var(--panel)}
+.node strong{display:block;font-family:var(--f-display);font-size:.95rem}
+.node.s.lit{border-color:var(--sensor);background:var(--sensor-soft)}
+.node.c.lit{border-color:var(--ctrl);background:var(--ctrl-soft)}
+.node.a.lit{border-color:var(--act);background:var(--act-soft)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{border:2px solid var(--ink);background:var(--ink);color:var(--bg);border-radius:8px;padding:8px 16px;font-family:var(--f-display);font-weight:600}
+.btn.ghost{background:transparent;color:var(--ink)}
+.btn:disabled{opacity:.45;cursor:default}
+.status{font-family:var(--f-mono);font-size:.85rem;min-height:1.6em}
+
+/* ---------- secciones ---------- */
+section.blk{padding-block:44px;border-top:1px solid var(--line);scroll-margin-top:64px}
+.bh{display:flex;gap:16px;align-items:flex-start;margin-bottom:22px}
+.num{flex:none;width:52px;height:52px;border-radius:12px;display:grid;place-items:center;font-family:var(--f-display);font-weight:700;font-size:1.6rem;background:var(--ink);color:var(--bg)}
+.bh p{margin-top:6px;color:var(--muted);max-width:44em}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.cols>*{min-width:0}
+@media (max-width:760px){.cols{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.card h3{margin-bottom:8px}
+ul.clean{margin:0;padding-left:1.1em;display:grid;gap:6px}
+.note{border-left:4px solid var(--ctrl);background:var(--ctrl-soft);padding:12px 16px;border-radius:0 8px 8px 0}
+.note.s{border-color:var(--sensor);background:var(--sensor-soft)}
+.src{font-size:.8rem;color:var(--muted);margin-top:8px;font-style:italic}
+.stack{display:grid;gap:14px}
+blockquote{margin:0;padding:12px 16px;border-left:4px solid var(--line);font-style:italic}
+
+/* cuento Cronos / Sensorio */
+.robots{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.robot{border:2px solid var(--line);border-radius:10px;padding:12px;text-align:center;position:relative;overflow:hidden;background:var(--panel)}
+.robot .face{font-family:var(--f-mono);font-size:1.6rem;font-weight:700}
+.robot .say{font-size:.9rem;min-height:3.2em;margin-top:6px}
+.rain{position:absolute;inset:0;pointer-events:none;opacity:0;transition:.4s;background:repeating-linear-gradient(105deg,transparent 0 10px,color-mix(in srgb,var(--water) 35%,transparent) 10px 12px)}
+.raining .rain{opacity:1}
+.robot.bad{border-color:var(--bad);background:var(--bad-soft)} .robot.good{border-color:var(--ok);background:var(--ok-soft)}
+
+/* sensores */
+.sgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+@media (max-width:640px){.sgrid{grid-template-columns:repeat(3,1fr)}}
+.sbtn{border:2px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;padding:12px 6px;display:grid;gap:6px;justify-items:center;font-weight:700;font-size:.9rem}
+.sbtn svg{width:34px;height:34px}
+.sbtn[aria-pressed="true"]{border-color:var(--sensor);background:var(--sensor-soft);color:var(--sensor)}
+.sout{margin-top:12px;min-height:5.4em}
+.pick{display:grid;gap:10px}
+.q{border:1px solid var(--line);border-radius:8px;padding:12px;background:var(--panel)}
+.opts{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.opt{border:2px solid var(--line);background:var(--bg);color:var(--ink);border-radius:6px;padding:4px 10px;font-size:.9rem}
+.opt.right{border-color:var(--ok);background:var(--ok-soft)} .opt.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.fb{font-size:.88rem;margin-top:6px;min-height:1.3em}
+
+/* humano vs máquina */
+.toggle{display:inline-flex;border:2px solid var(--ink);border-radius:8px;overflow:hidden}
+.toggle button{border:none;background:transparent;color:var(--ink);padding:6px 14px;font-family:var(--f-display);font-weight:600}
+.toggle button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.hm{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.hm .node{text-align:center}
+.hm .big{font-size:1.9rem;line-height:1.2;display:block}
+.pipe{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-family:var(--f-mono);font-size:.85rem}
+.pipe span{padding:6px 10px;border-radius:6px}
+.arrow{color:var(--muted)}
+
+/* actuadores */
+.agrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media (max-width:640px){.agrid{grid-template-columns:repeat(2,1fr)}}
+.abtn{border:2px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;padding:14px 8px;display:grid;justify-items:center;gap:6px}
+.abtn svg{width:64px;height:64px;overflow:visible}
+.abtn b{font-family:var(--f-display)}
+.abtn small{color:var(--muted);font-size:.8rem;line-height:1.3}
+.abtn.on{border-color:var(--act);background:var(--act-soft)}
+.motor-rot{transform-origin:32px 32px}
+.abtn.on .motor-rot{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.bulb{fill:var(--line);transition:.3s} .abtn.on .bulb{fill:var(--glow);filter:drop-shadow(0 0 8px var(--glow))}
+.coil{stroke:var(--muted);transition:.3s} .abtn.on .coil{stroke:var(--act);filter:drop-shadow(0 0 5px var(--act))}
+.drop{fill:var(--water);opacity:0}
+.abtn.on .drop{animation:drip 1s linear infinite}
+.abtn.on .drop.d2{animation-delay:.33s}.abtn.on .drop.d3{animation-delay:.66s}
+@keyframes drip{0%{opacity:0;transform:translateY(0)}20%{opacity:1}100%{opacity:0;transform:translateY(18px)}}
+.gate{transition:transform .4s;transform-origin:32px 26px} .abtn.on .gate{transform:rotate(90deg)}
+
+/* riego paso a paso */
+.chain{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:14px}
+@media (max-width:700px){.chain{grid-template-columns:1fr}}
+.link{border:2px solid var(--line);border-radius:10px;padding:10px;background:var(--panel);transition:.3s;min-width:0}
+.link .k{font-family:var(--f-mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.link h3{font-size:1rem;margin-block:2px 4px}
+.link p{font-size:.88rem;line-height:1.35}
+.link.lit{border-color:var(--ink);transform:translateY(-3px);box-shadow:0 6px 0 -2px var(--line)}
+.link.lit.s{border-color:var(--sensor);background:var(--sensor-soft)}
+.link.lit.c{border-color:var(--ctrl);background:var(--ctrl-soft)}
+.link.lit.a{border-color:var(--act);background:var(--act-soft)}
+.garden{height:120px;border-radius:8px;position:relative;overflow:hidden;background:var(--sensor-soft);margin-top:12px}
+.soil{position:absolute;left:0;right:0;bottom:0;height:44px;transition:background .8s}
+.soil.dry{background:#c79a5b} .soil.wet{background:#6b4a2b}
+.plant{position:absolute;bottom:44px;left:30%;width:6px;height:38px;background:var(--ok);border-radius:3px;transform-origin:bottom;transition:transform .8s}
+.plant::before,.plant::after{content:"";position:absolute;width:18px;height:10px;background:var(--ok);border-radius:10px 0}
+.plant::before{left:-16px;top:8px;transform:rotate(-20deg)}.plant::after{left:4px;top:16px;transform:scaleX(-1) rotate(-20deg)}
+.garden.thirsty .plant{transform:rotate(18deg) scaleY(.85)}
+.probe{position:absolute;bottom:14px;left:55%;width:8px;height:52px;background:var(--muted);border-radius:2px}
+.probe::after{content:"";position:absolute;top:-10px;left:-6px;width:20px;height:12px;border-radius:3px;background:var(--sensor)}
+.sprink{position:absolute;right:14%;top:14px;width:70px;height:60px}
+.sprink i{position:absolute;width:3px;height:10px;border-radius:2px;background:var(--water);opacity:0}
+.garden.watering .sprink i{animation:rainfall .7s linear infinite}
+@keyframes rainfall{0%{opacity:0;transform:translateY(0)}20%{opacity:1}100%{opacity:0;transform:translateY(60px)}}
+
+/* lógica */
+.rule{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+@media (max-width:700px){.rule{grid-template-columns:1fr}}
+.rule .kw{font-family:var(--f-mono);font-weight:700;font-size:.8rem;letter-spacing:.06em}
+.rule .if .kw{color:var(--sensor)} .rule .then .kw{color:var(--act)}
+.lamp{width:18px;height:18px;border-radius:50%;background:var(--line);display:inline-block;vertical-align:middle;margin-right:6px;transition:.2s}
+.lamp.on{background:var(--ok);box-shadow:0 0 10px var(--ok)}
+.then .res{font-weight:700}
+.then.off .res{color:var(--muted);font-weight:400}
+input[type=range]{width:100%;accent-color:var(--sensor)}
+.sw{display:inline-flex;align-items:center;gap:8px;border:2px solid var(--line);border-radius:999px;padding:4px 12px 4px 4px;background:var(--bg);color:var(--ink)}
+.sw::before{content:"";width:22px;height:22px;border-radius:50%;background:var(--line);transition:.2s}
+.sw[aria-pressed="true"]{border-color:var(--sensor)} .sw[aria-pressed="true"]::before{background:var(--sensor)}
+.gatebox{display:grid;gap:10px}
+.gatebox .res{font-family:var(--f-mono);font-weight:700}
+table.truth{border-collapse:collapse;font-family:var(--f-mono);font-size:.85rem;width:100%}
+table.truth td,table.truth th{border:1px solid var(--line);padding:4px 8px;text-align:center}
+table.truth tr.cur td{background:var(--ctrl-soft)}
+.blank{display:inline-flex;gap:4px;vertical-align:middle}
+.blank button{border:2px solid var(--line);background:var(--bg);color:var(--ink);border-radius:6px;padding:0 10px;font-family:var(--f-mono);font-weight:700}
+.blank button.sel{border-color:var(--ctrl);background:var(--ctrl-soft)}
+.blank button.right{border-color:var(--ok);background:var(--ok-soft)} .blank button.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.portero li{margin-bottom:10px}
+
+/* lazos */
+.loop{display:grid;gap:12px}
+.bigval{font-family:var(--f-mono);font-size:2rem;font-weight:700;font-variant-numeric:tabular-nums}
+.bar{height:14px;border-radius:7px;background:var(--line);overflow:hidden;position:relative}
+.bar i{position:absolute;inset:0 auto 0 0;background:var(--sensor);transition:width .3s}
+.bar b{position:absolute;top:-4px;bottom:-4px;width:3px;background:var(--act)}
+.pill{display:inline-block;font-family:var(--f-mono);font-size:.8rem;font-weight:700;padding:3px 10px;border-radius:999px}
+.pill.on{background:var(--act-soft);color:var(--act)} .pill.off{background:var(--line);color:var(--muted)}
+.roomlight{height:60px;border-radius:8px;background:var(--line);display:grid;place-items:center;font-family:var(--f-mono);transition:.4s}
+.roomlight.on{background:var(--glow);color:#3a2b00;box-shadow:0 0 18px var(--glow)}
+
+/* exposición */
+textarea,input[type=text]{font:inherit;color:var(--ink);background:var(--bg);border:2px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
+.team{margin-top:22px;font-family:var(--f-display);font-weight:600;font-size:1.1rem;display:grid;gap:2px}
+.team span{font-family:var(--f-mono);font-size:.75rem;font-weight:500;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+
+/* desafío */
+details.flip{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:0}
+details.flip summary{cursor:pointer;padding:14px 16px;font-family:var(--f-display);font-weight:600;font-size:1.05rem;list-style:none;display:flex;justify-content:space-between;gap:10px}
+details.flip summary::-webkit-details-marker{display:none}
+details.flip summary::after{content:"Ver respuesta";font-family:var(--f-mono);font-size:.75rem;color:var(--muted);flex:none;align-self:center}
+details.flip[open] summary::after{content:"Ocultar"}
+details.flip .ans{padding:0 16px 16px;display:grid;gap:8px}
+.quiz .q h3{font-size:1rem}
+.score{font-family:var(--f-mono);font-weight:700;font-size:1.1rem}
+.thesis{margin-top:18px;font-family:var(--f-display);font-size:1.3rem;font-weight:600}
+.thesis .c-s,.thesis .c-c,.thesis .c-a{padding:0 6px;border-radius:4px}
+footer{padding-block:30px;border-top:1px solid var(--line);font-size:.85rem;color:var(--muted);display:grid;gap:6px}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+
+<nav class="top" aria-label="Secciones">
+  <div class="wrap" id="navlinks">
+    <a href="#inicio">Inicio</a>
+    <a href="#s1">1 ¿Qué es?</a>
+    <a href="#s2">2 Sensores</a>
+    <a href="#s3">3 Controlador</a>
+    <a href="#s4">4 Actuadores</a>
+    <a href="#s5">5 ¿Cómo funciona?</a>
+    <a href="#s6">6 Lógica</a>
+    <a href="#s7">7 Lazos</a>
+    <a href="#desafio">Desafío final</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+<header class="hero" id="inicio">
+  <div>
+    <div class="school"><b>Colegio Martín Pescador</b><span>Área Tecnológica</span><span>2.° B</span><span>Prof. Alexis Sumbaino</span></div>
+    <h1>¡Explicamos cómo funcionan los sistemas automáticos!</h1>
+    <p class="lede">Una máquina automática hace tres cosas: <strong>percibe</strong> con sensores, <strong>piensa</strong> con un controlador y <strong>actúa</strong> con actuadores. Probalo con la puerta automática.</p>
+    <div class="pat"><span class="chip c-s">SENSOR · entrada</span><span class="chip c-c">CONTROLADOR · procesa</span><span class="chip c-a">ACTUADOR · salida</span></div>
+    <p class="team"><span>Integrantes</span>Luciano Camargo · Renato Cubela · Nikos Ayala</p>
+  </div>
+
+  <div class="door-demo" id="door">
+    <div class="door-stage" aria-hidden="true">
+      <div class="frame"><div class="leaf l"></div><div class="leaf r"></div></div>
+      <div class="beam"></div>
+      <div class="eye"></div>
+      <div class="person"><i></i><b></b></div>
+    </div>
+    <div class="flow">
+      <div class="node s" id="dS"><strong>Sensor</strong>detecta presencia</div>
+      <div class="node c" id="dC"><strong>Controlador</strong>decide abrir</div>
+      <div class="node a" id="dA"><strong>Actuador</strong>el motor abre la puerta</div>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" id="doorBtn">Acercar a la persona</button>
+      <span class="status" id="doorMsg" aria-live="polite">Nadie cerca. La puerta está cerrada.</span>
+    </div>
+  </div>
+</header>
+
+<!-- 1 -->
+<section class="blk" id="s1">
+  <div class="bh"><div class="num">1</div><div><h2>¿Qué es un sistema automático?</h2>
+    <p>Es una máquina o dispositivo que realiza una tarea sin intervención de una persona.</p></div></div>
+  <div class="cols">
+    <div class="stack">
+      <div class="card">
+        <h3>Lo que tenés que saber</h3>
+        <ul class="clean">
+          <li>Utiliza <strong>sensores</strong>, un <strong>controlador</strong> y <strong>actuadores</strong>.</li>
+          <li>Puede ser <strong>con sensores</strong> o <strong>sin sensores</strong>.</li>
+          <li><strong>¿Para qué sirve?</strong> Para hacer tareas de forma más fácil, rápida y segura.</li>
+          <li><strong>Ejemplo:</strong> la puerta automática (la de arriba).</li>
+        </ul>
+      </div>
+      <div class="note">
+        <h3 style="margin-bottom:6px">Delegamos funciones</h3>
+        <p>Los humanos tenemos capacidades limitadas: nos cansamos, nos aburrimos, nos distraemos. Por eso transferimos funciones a los objetos técnicos. Hasta mediados del siglo XX los ascensores tenían un <strong>ascensorista</strong> que frenaba justo en el piso y abría la puerta. Hoy esa función la hacen sensores y motores automáticos.</p>
+        <p class="src">Cartilla de Tecnología, 2.° año</p>
+      </div>
+    </div>
+    <div class="card" id="tale">
+      <h3>Con sensor y sin sensor: Cronos y Sensorio</h3>
+      <p>En el cuento, dos robots tienen que regar. Cronos no tiene sensor. Sensorio sí. Hacé llover y mirá qué hace cada uno.</p>
+      <div class="robots">
+        <div class="robot" id="rC"><div class="rain"></div><div class="face">[o_o]</div><strong>Cronos</strong><div class="say">Espera la orden de regar.</div></div>
+        <div class="robot" id="rS"><div class="rain"></div><div class="face">[◉_◉]</div><strong>Sensorio</strong><div class="say">Espera la orden de regar.</div></div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn" id="rainBtn">Hacer llover y dar la orden</button>
+        <button class="btn ghost" id="rainReset">Reiniciar</button>
+      </div>
+      <p class="src" id="taleEnd" hidden>“El Rey, al ver esto, entendió que la verdadera inteligencia no es solo obedecer órdenes, sino saber observar el mundo antes de actuar.” Moreira De Cuadra, Yocelín.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 2 -->
+<section class="blk" id="s2">
+  <div class="bh"><div class="num">2</div><div><h2>Sensores</h2>
+    <p>Son los “sentidos” de la máquina. Captan información del entorno y la transforman en una señal eléctrica que el controlador puede entender. Son los “ojos” y “oídos” del sistema.</p></div></div>
+  <div class="cols">
+    <div class="card">
+      <h3>¿Qué pueden detectar? Tocá cada uno</h3>
+      <div class="sgrid" id="sgrid">
+        <button class="sbtn" data-k="luz" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>Luz</button>
+        <button class="sbtn" data-k="temp" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/></svg>Temperatura</button>
+        <button class="sbtn" data-k="mov" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="13" cy="4" r="2"/><path d="M7 21l3-6 3 2v4M10 15l1-6 4 3 3 1M11 9L7 11"/></svg>Movimiento</button>
+        <button class="sbtn" data-k="hum" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/></svg>Humedad</button>
+        <button class="sbtn" data-k="pos" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 22s7-7 7-12a7 7 0 0 0-14 0c0 5 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>Posición o presencia</button>
+      </div>
+      <div class="sout note s" id="sout" aria-live="polite">Elegí qué detecta el sensor.</div>
+      <p class="src">Ejemplos de la cartilla: fotocélula (luz), termocupla (temperatura), final de carrera (posición).</p>
+    </div>
+    <div class="card">
+      <h3>Pregunta clave: ¿qué información detecta el sensor?</h3>
+      <p class="muted" style="margin-bottom:10px">Elegí el sensor que necesita cada sistema.</p>
+      <div class="pick" id="sensorQuiz"></div>
+    </div>
+  </div>
+</section>
+
+<!-- 3 -->
+<section class="blk" id="s3">
+  <div class="bh"><div class="num">3</div><div><h2>Controlador</h2>
+    <p>Es el “cerebro” del sistema. Recibe la información del sensor, la procesa y decide qué hacer.</p></div></div>
+  <div class="cols">
+    <div class="card">
+      <h3>El recorrido de la información</h3>
+      <div class="pipe" style="margin-block:10px 14px">
+        <span class="c-s">Sensor (entrada)</span><span class="arrow">→</span><span class="c-c">Controlador (procesa)</span><span class="arrow">→</span><span class="c-a">Actuador (salida)</span>
+      </div>
+      <ul class="clean">
+        <li>Recibe la señal del sensor.</li>
+        <li>La compara con una instrucción programada, por ejemplo: <span class="mono">“si hay más de 30 grados, prendé”</span>.</li>
+        <li>Decide qué hacer y le da la orden al actuador.</li>
+      </ul>
+      <p style="margin-top:12px"><strong>Ejemplos:</strong> una computadora o un microcontrolador. También puede ser un simple chip o un PLC (controlador lógico programable).</p>
+    </div>
+    <div class="card">
+      <h3>La máquina funciona como un cuerpo simplificado</h3>
+      <div class="toggle" role="group" aria-label="Comparar">
+        <button id="tH" aria-pressed="true">Humano</button><button id="tM" aria-pressed="false">Máquina</button>
+      </div>
+      <div class="hm" id="hm"></div>
+      <p class="src">Basado en el esquema “Humano / Máquina” de la cartilla.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 4 -->
+<section class="blk" id="s4">
+  <div class="bh"><div class="num">4</div><div><h2>Actuadores</h2>
+    <p>Son los que realizan la acción que ordena el controlador. Transforman la energía (eléctrica, neumática, hidráulica) en una acción física. Son los “músculos” del sistema.</p></div></div>
+  <div class="card">
+    <h3>Encendelos para ver qué hace cada uno</h3>
+    <div class="agrid" id="agrid">
+      <button class="abtn" aria-pressed="false">
+        <svg viewBox="0 0 64 64"><rect x="8" y="16" width="36" height="32" rx="6" fill="none" stroke="currentColor" stroke-width="3"/><rect x="44" y="28" width="14" height="8" fill="currentColor"/><g class="motor-rot" style="transform-origin:26px 32px"><path d="M26 22v20M16 32h20" stroke="var(--act)" stroke-width="4" stroke-linecap="round"/></g></svg>
+        <b>Motor</b><small>mueve</small></button>
+      <button class="abtn" aria-pressed="false">
+        <svg viewBox="0 0 64 64"><circle class="bulb" cx="32" cy="26" r="16"/><rect x="25" y="42" width="14" height="12" rx="2" fill="currentColor"/></svg>
+        <b>Lámpara</b><small>ilumina</small></button>
+      <button class="abtn" aria-pressed="false">
+        <svg viewBox="0 0 64 64"><path class="coil" d="M4 32h10l4-10 6 20 6-20 6 20 6-20 6 20 4-10h8" fill="none" stroke-width="4" stroke-linejoin="round"/></svg>
+        <b>Resistencia</b><small>calienta</small></button>
+      <button class="abtn" aria-pressed="false">
+        <svg viewBox="0 0 64 64"><rect x="2" y="20" width="60" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="3"/><rect class="gate" x="30" y="14" width="4" height="24" fill="var(--act)"/><circle class="drop" cx="58" cy="40" r="3"/><circle class="drop d2" cx="58" cy="40" r="3"/><circle class="drop d3" cx="58" cy="40" r="3"/></svg>
+        <b>Electroválvula</b><small>abre o cierra el paso del agua</small></button>
+    </div>
+  </div>
+</section>
+
+<!-- 5 -->
+<section class="blk" id="s5">
+  <div class="bh"><div class="num">5</div><div><h2>¿Cómo funciona un sistema?</h2>
+    <p>Entorno → Sensor → Controlador → Actuador → Acción. Ejemplo: sistema de riego automático.</p></div></div>
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <div class="toggle" role="group" aria-label="Estado de la tierra">
+        <button id="soilDry" aria-pressed="true">Tierra seca</button><button id="soilWet" aria-pressed="false">Tierra húmeda</button>
+      </div>
+      <div class="row"><button class="btn" id="runChain">Ver paso a paso</button></div>
+    </div>
+    <div class="garden thirsty" id="garden" aria-hidden="true">
+      <div class="soil dry" id="soil"></div><div class="plant"></div><div class="probe"></div>
+      <div class="sprink"><i style="left:6px;animation-delay:0s"></i><i style="left:22px;animation-delay:.2s"></i><i style="left:38px;animation-delay:.4s"></i><i style="left:54px;animation-delay:.1s"></i><i style="left:14px;animation-delay:.5s"></i><i style="left:46px;animation-delay:.3s"></i></div>
+    </div>
+    <div class="chain" id="chain">
+      <div class="link"><div class="k">Entorno</div><h3>La tierra</h3><p id="t0">Está seca.</p></div>
+      <div class="link s"><div class="k">Sensor</div><h3>1. Sensor de humedad</h3><p id="t1">Detecta que la tierra está seca.</p></div>
+      <div class="link c"><div class="k">Controlador</div><h3>2. Controlador</h3><p id="t2">Recibe esa información y decide activar el riego.</p></div>
+      <div class="link a"><div class="k">Actuador</div><h3>3. Electroválvula</h3><p id="t3">Abre el paso del agua.</p></div>
+      <div class="link"><div class="k">Acción</div><h3>4. Riego</h3><p id="t4">La planta recibe agua.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 6 -->
+<section class="blk" id="s6">
+  <div class="bh"><div class="num">6</div><div><h2>Lógica de funcionamiento</h2>
+    <p>El controlador no piensa como nosotros: sigue una secuencia de pasos predefinidos con frases del tipo <span class="mono">SI… → ENTONCES…</span>. Cambiá lo que detecta el sensor y mirá qué pasa.</p></div></div>
+  <div class="stack">
+    <div class="rule">
+      <div class="if"><div class="kw">SI</div><p>la tierra está seca…</p><div class="row" style="margin-top:6px"><button class="sw" id="rTierra" aria-pressed="true">Tierra seca</button></div></div>
+      <div class="arrow mono">→</div>
+      <div class="then" id="oTierra"><div class="kw">ENTONCES</div><p class="res"><span class="lamp on"></span>se activa el riego.</p></div>
+    </div>
+    <div class="rule">
+      <div class="if"><div class="kw">SI</div><p>la temperatura supera los 30 °C…</p><div class="row" style="margin-top:6px;flex-wrap:nowrap"><input type="range" id="rTemp" min="15" max="40" value="33" aria-label="Temperatura"><span class="mono" id="rTempV" style="min-width:4.5em">33 °C</span></div></div>
+      <div class="arrow mono">→</div>
+      <div class="then" id="oTemp"><div class="kw">ENTONCES</div><p class="res"><span class="lamp on"></span>se enciende el ventilador.</p></div>
+    </div>
+    <div class="rule">
+      <div class="if"><div class="kw">SI</div><p>detecta una persona…</p><div class="row" style="margin-top:6px"><button class="sw" id="rPers" aria-pressed="false">Nadie</button></div></div>
+      <div class="arrow mono">→</div>
+      <div class="then off" id="oPers"><div class="kw">ENTONCES</div><p class="res"><span class="lamp"></span>se abre la puerta.</p></div>
+    </div>
+
+    <div class="cols" style="margin-top:10px">
+      <div class="card gatebox">
+        <h3>Lógica Y (AND): se tienen que cumplir todas</h3>
+        <p class="muted">Para que arranque el ascensor, la puerta debe estar cerrada <strong>Y</strong> se debe haber apretado un botón.</p>
+        <div class="row"><button class="sw" id="gA1" aria-pressed="false">Puerta cerrada</button><button class="sw" id="gA2" aria-pressed="false">Botón apretado</button></div>
+        <p class="res" id="gAout">Ascensor: quieto</p>
+      </div>
+      <div class="card gatebox">
+        <h3>Lógica O (OR): alcanza con una</h3>
+        <p class="muted">La alarma suena si se abre la puerta <strong>O</strong> si se rompe la ventana.</p>
+        <div class="row"><button class="sw" id="gO1" aria-pressed="false">Puerta abierta</button><button class="sw" id="gO2" aria-pressed="false">Ventana rota</button></div>
+        <p class="res" id="gOout">Alarma: en silencio</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Juego: el portero electrónico</h3>
+      <p class="muted" style="margin-bottom:12px">Completá con Y u O para que el edificio sea seguro.</p>
+      <ol class="portero" id="portero">
+        <li>La puerta se abre SI (se detecta presencia) <span class="blank" data-a="Y"><button>Y</button><button>O</button></span> (la persona tiene la tarjeta correcta).<div class="fb"></div></li>
+        <li>La alarma suena SI (se fuerza la puerta) <span class="blank" data-a="O"><button>Y</button><button>O</button></span> (se detecta humo).<div class="fb"></div></li>
+        <li>La luz del pasillo se prende SI (es de noche) <span class="blank" data-a="Y"><button>Y</button><button>O</button></span> (hay alguien caminando).<div class="fb"></div></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- 7 -->
+<section class="blk" id="s7">
+  <div class="bh"><div class="num">7</div><div><h2>Sistemas de control</h2><p>Hay dos tipos: lazo abierto y lazo cerrado.</p></div></div>
+  <div class="cols">
+    <div class="card loop">
+      <h3>Lazo abierto</h3>
+      <p>Realiza una acción <strong>sin comprobar el resultado</strong>. Ejemplo: un temporizador que enciende una luz.</p>
+      <div class="bigval" id="timerV">00:03</div>
+      <div class="roomlight" id="roomLight">luz apagada</div>
+      <div class="row"><button class="btn" id="timerBtn">Iniciar temporizador</button><button class="btn ghost" id="timerReset">Reiniciar</button></div>
+      <p class="muted" style="font-size:.9rem">No tiene sensor: cuando se cumple el tiempo, prende la luz y no mira nada más.</p>
+    </div>
+    <div class="card loop">
+      <h3>Lazo cerrado</h3>
+      <p>Recibe información mediante sensores y <strong>puede adaptar su funcionamiento</strong>. Ejemplo: un termostato que enciende y apaga la calefacción según la temperatura.</p>
+      <div class="row" style="justify-content:space-between"><div><div class="muted" style="font-size:.8rem">Temperatura que mide el sensor</div><div class="bigval" id="thV">16.0 °C</div></div><span class="pill on" id="heat">CALEFACCIÓN ENCENDIDA</span></div>
+      <div class="bar" aria-hidden="true"><i id="thBar"></i><b id="thMark"></b></div>
+      <label class="muted" for="thSet" style="font-size:.9rem">Temperatura que elegís en el termostato: <span class="mono" id="thSetV">21 °C</span></label>
+      <input type="range" id="thSet" min="15" max="28" value="21">
+      <p class="muted" style="font-size:.9rem">Mirá cómo el termostato mide, prende y apaga solo. Esa vuelta de información es el “lazo”.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Desafío -->
+<section class="blk" id="desafio">
+  <div class="bh"><div class="num" style="font-size:1.1rem">★</div><div><h2>Desafío final</h2>
+    <p>Al terminar la exposición, deben poder responder estas preguntas. Intentá responderlas vos primero y después abrí la respuesta.</p></div></div>
+  <div class="stack">
+    <details class="flip"><summary>¿Qué detecta el sensor?</summary><div class="ans">
+      <p>El sensor detecta información del entorno: luz, temperatura, movimiento, humedad, posición o presencia.</p>
+      <p><strong>En nuestro ejemplo:</strong> el sensor de humedad detecta si la tierra está seca.</p></div></details>
+    <details class="flip"><summary>¿Qué hace el controlador?</summary><div class="ans">
+      <p>Recibe la información del sensor, la procesa y decide qué hacer. Es el “cerebro” del sistema.</p>
+      <p><strong>En nuestro ejemplo:</strong> recibe que la tierra está seca y decide activar el riego.</p></div></details>
+    <details class="flip"><summary>¿Qué acción realiza el actuador?</summary><div class="ans">
+      <p>Realiza la acción que ordena el controlador: un motor mueve, una lámpara ilumina, una resistencia calienta, una electroválvula abre o cierra el paso del agua.</p>
+      <p><strong>En nuestro ejemplo:</strong> la electroválvula abre el paso del agua y se produce el riego.</p></div></details>
+    <details class="flip"><summary>¿Cómo funciona la lógica SI → ENTONCES?</summary><div class="ans">
+      <p>Si ocurre algo que detecta el sensor, entonces el controlador ordena una acción.</p>
+      <p><strong>En nuestro ejemplo:</strong> SI la tierra está seca, ENTONCES se activa el riego.</p></div></details>
+    <details class="flip"><summary>¿Qué diferencia existe entre un sistema con sensores y uno sin sensores?</summary><div class="ans">
+      <p><strong>Sin sensores (lazo abierto):</strong> realiza la acción sin comprobar el resultado. Ejemplo: un temporizador que enciende una luz.</p>
+      <p><strong>Con sensores (lazo cerrado):</strong> recibe información mediante sensores y puede adaptar su funcionamiento. Ejemplo: un termostato que prende y apaga la calefacción según la temperatura.</p>
+      <p>Como en el cuento: Cronos riega aunque la tierra ya esté mojada; Sensorio observa primero y no riega.</p></div></details>
+  </div>
+
+  <div class="card quiz" style="margin-top:22px">
+    <div class="row" style="justify-content:space-between"><h3>Ponete a prueba</h3><span class="score" id="score">0 / 6</span></div>
+    <div class="pick" id="quiz" style="margin-top:10px"></div>
+  </div>
+  <p class="thesis">La idea es poder explicar cómo una máquina <span class="c-s">percibe</span>, <span class="c-c">piensa</span> y <span class="c-a">actúa</span>.</p>
+</section>
+
+<footer>
+  <p><strong>Fuentes:</strong> afiche “¡Explicamos cómo funcionan los sistemas automáticos!” (Colegio Martín Pescador, 2.° B, Prof. Alexis Sumbaino) y Cartilla de Tecnología 2.° año (Prof. Bruno Gutierrez Perea).</p>
+  <p>Cuento de los robots Cronos y Sensorio: Moreira De Cuadra, Yocelín.</p>
+</footer>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const store = {
+  get(k){ try{ return localStorage.getItem(k) }catch(e){ return null } },
+  set(k,v){ try{ localStorage.setItem(k,v) }catch(e){} }
+};
+
+/* ---------- puerta automática ---------- */
+let doorBusy = false;
+$("#doorBtn").addEventListener("click", () => {
+  if (doorBusy) return; doorBusy = true;
+  const d = $("#door"), msg = $("#doorMsg"), btn = $("#doorBtn");
+  btn.disabled = true;
+  ["seen","near","open","through"].forEach(c => d.classList.remove(c));
+  ["#dS","#dC","#dA"].forEach(s => $(s).classList.remove("lit"));
+  const seq = [
+    [0,    () => { d.classList.add("near"); msg.textContent = "Se acerca una persona…"; }],
+    [1300, () => { d.classList.add("seen"); $("#dS").classList.add("lit"); msg.textContent = "SENSOR: detecta presencia."; }],
+    [2300, () => { $("#dC").classList.add("lit"); msg.textContent = "CONTROLADOR: si detecta una persona, entonces abrir."; }],
+    [3300, () => { d.classList.add("open"); $("#dA").classList.add("lit"); msg.textContent = "ACTUADOR: el motor abre la puerta."; }],
+    [4400, () => { d.classList.add("through"); }],
+    [6000, () => { ["seen","near","open","through"].forEach(c => d.classList.remove(c)); ["#dS","#dC","#dA"].forEach(s => $(s).classList.remove("lit"));
+                   msg.textContent = "Ya no hay nadie. La puerta se cierra."; btn.disabled = false; doorBusy = false; }]
+  ];
+  seq.forEach(([t,f]) => setTimeout(f,t));
+});
+
+/* ---------- Cronos y Sensorio ---------- */
+$("#rainBtn").addEventListener("click", () => {
+  $("#tale").classList.add("raining");
+  const c = $("#rC"), s = $("#rS");
+  c.querySelector(".say").textContent = "Sale a regar sobre el barro mojado.";
+  s.querySelector(".say").textContent = "“La tierra ya tiene agua. No hace falta mi trabajo hoy.”";
+  c.classList.add("bad"); s.classList.add("good");
+  $("#taleEnd").hidden = false;
+});
+$("#rainReset").addEventListener("click", () => {
+  $("#tale").classList.remove("raining");
+  ["#rC","#rS"].forEach(r => { $(r).classList.remove("bad","good"); $(r).querySelector(".say").textContent = "Espera la orden de regar."; });
+  $("#taleEnd").hidden = true;
+});
+
+/* ---------- sensores ---------- */
+const sInfo = {
+  luz:  "<strong>Luz.</strong> Ejemplo de la cartilla: la <strong>fotocélula</strong>. Es como el ojo del sistema.",
+  temp: "<strong>Temperatura.</strong> Ejemplo de la cartilla: la <strong>termocupla</strong>. Es como la piel cuando siente calor o frío.",
+  mov:  "<strong>Movimiento.</strong> Por ejemplo, para que se abra la puerta automática o suene una alarma.",
+  hum:  "<strong>Humedad.</strong> Por ejemplo, en el riego automático: detecta si la tierra está seca.",
+  pos:  "<strong>Posición o presencia.</strong> Ejemplo de la cartilla: el <strong>final de carrera</strong> (posición)."
+};
+document.querySelectorAll(".sbtn").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll(".sbtn").forEach(x => x.setAttribute("aria-pressed","false"));
+  b.setAttribute("aria-pressed","true");
+  $("#sout").innerHTML = sInfo[b.dataset.k];
+}));
+
+function buildQuiz(host, items, onScore){
+  let right = 0;
+  items.forEach(it => {
+    const q = document.createElement("div"); q.className = "q";
+    q.innerHTML = `<h3>${it.q}</h3><div class="opts"></div><div class="fb"></div>`;
+    const opts = q.querySelector(".opts"), fb = q.querySelector(".fb");
+    let done = false;
+    it.o.forEach((o,i) => {
+      const b = document.createElement("button"); b.className = "opt"; b.textContent = o;
+      b.addEventListener("click", () => {
+        if (done) return;
+        if (i === it.a){ done = true; b.classList.add("right"); fb.textContent = "¡Bien! " + (it.why || ""); right++; onScore && onScore(right); }
+        else { b.classList.add("wrong"); fb.textContent = "Probá otra."; }
+      });
+      opts.appendChild(b);
+    });
+    host.appendChild(q);
+  });
+}
+buildQuiz($("#sensorQuiz"), [
+  {q:"Riego: “Si la tierra está seca…”", o:["Luz","Humedad","Movimiento"], a:1, why:"Mide cuánta agua tiene la tierra."},
+  {q:"Ventilador: “Si la temperatura supera los 30 °C…”", o:["Temperatura","Posición","Luz"], a:0, why:"Mide el calor."},
+  {q:"Puerta automática: “Si detecta una persona…”", o:["Humedad","Temperatura","Presencia / movimiento"], a:2, why:"Detecta que alguien se acerca."}
+]);
+
+/* ---------- humano vs máquina ---------- */
+const hmData = {
+  h: [["s","👁","Ojo","Sensor"],["c","🧠","Cerebro","Controlador"],["a","✋","Mano","Actuador"]],
+  m: [["s","📡","Sensor","capta el entorno"],["c","🔲","Controlador","CPU, chip o PLC"],["a","⚙","Actuador","ejecuta la acción"]]
+};
+function drawHM(k){
+  $("#hm").innerHTML = hmData[k].map(([c,ic,t,sub]) => `<div class="node ${c} lit"><span class="big" aria-hidden="true">${ic}</span><strong>${t}</strong>${k==="h"?"funciona como ":""}${sub}</div>`).join("");
+  $("#tH").setAttribute("aria-pressed", k==="h"); $("#tM").setAttribute("aria-pressed", k==="m");
+}
+$("#tH").onclick = () => drawHM("h"); $("#tM").onclick = () => drawHM("m"); drawHM("h");
+
+/* ---------- actuadores ---------- */
+document.querySelectorAll(".abtn").forEach(b => b.addEventListener("click", () => {
+  const on = b.classList.toggle("on"); b.setAttribute("aria-pressed", on);
+}));
+
+/* ---------- riego paso a paso ---------- */
+let dry = true, chainTimers = [];
+const chainTxt = {
+  dry: ["Está seca.","Detecta que la tierra está seca.","Recibe esa información y decide activar el riego.","Abre el paso del agua.","La planta recibe agua."],
+  wet: ["Está húmeda.","Detecta que la tierra está húmeda.","Recibe esa información y decide no regar.","Se queda cerrada.","No hace falta regar."]
+};
+function setSoil(isDry){
+  dry = isDry; chainTimers.forEach(clearTimeout);
+  $("#soilDry").setAttribute("aria-pressed", isDry); $("#soilWet").setAttribute("aria-pressed", !isDry);
+  $("#soil").className = "soil " + (isDry ? "dry" : "wet");
+  $("#garden").classList.toggle("thirsty", isDry); $("#garden").classList.remove("watering");
+  chainTxt[isDry ? "dry" : "wet"].forEach((t,i) => $("#t"+i).textContent = t);
+  document.querySelectorAll("#chain .link").forEach(l => l.classList.remove("lit"));
+}
+$("#soilDry").onclick = () => setSoil(true); $("#soilWet").onclick = () => setSoil(false);
+$("#runChain").addEventListener("click", () => {
+  setSoil(dry);
+  const links = document.querySelectorAll("#chain .link");
+  links.forEach((l,i) => chainTimers.push(setTimeout(() => {
+    l.classList.add("lit");
+    if (i === 3 && dry) $("#garden").classList.add("watering");
+    if (i === 4 && dry){ chainTimers.push(setTimeout(() => { $("#soil").className = "soil wet"; $("#garden").classList.remove("thirsty"); }, 1200)); }
+  }, i*900)));
+});
+
+/* ---------- reglas SI → ENTONCES ---------- */
+function setThen(el, on){ el.classList.toggle("off", !on); el.querySelector(".lamp").classList.toggle("on", on); }
+function sw(el, onTxt, offTxt, cb){
+  el.addEventListener("click", () => {
+    const v = el.getAttribute("aria-pressed") !== "true";
+    el.setAttribute("aria-pressed", v); if (onTxt) el.textContent = v ? onTxt : offTxt; cb(v);
+  });
+}
+sw($("#rTierra"), "Tierra seca", "Tierra húmeda", v => setThen($("#oTierra"), v));
+sw($("#rPers"), "Persona detectada", "Nadie", v => setThen($("#oPers"), v));
+$("#rTemp").addEventListener("input", e => { const t = +e.target.value; $("#rTempV").textContent = t + " °C"; setThen($("#oTemp"), t > 30); });
+
+const g = {A1:false,A2:false,O1:false,O2:false};
+function gates(){
+  $("#gAout").textContent = "Ascensor: " + (g.A1 && g.A2 ? "ARRANCA" : "quieto");
+  $("#gOout").textContent = "Alarma: " + (g.O1 || g.O2 ? "¡SUENA!" : "en silencio");
+}
+["A1","A2","O1","O2"].forEach(k => sw($("#g"+k), null, null, v => { g[k] = v; gates(); }));
+
+document.querySelectorAll("#portero li").forEach(li => {
+  const bl = li.querySelector(".blank"), fb = li.querySelector(".fb");
+  bl.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+    bl.querySelectorAll("button").forEach(x => x.className = "");
+    const ok = b.textContent === bl.dataset.a;
+    b.className = ok ? "right" : "wrong";
+    fb.textContent = ok
+      ? (bl.dataset.a === "Y" ? "Correcto: tienen que cumplirse las dos condiciones." : "Correcto: alcanza con que pase una de las dos.")
+      : (bl.dataset.a === "Y" ? "Pensalo: con O alcanzaría una sola condición. ¿Es seguro?" : "Pensalo: con Y tendrían que pasar las dos a la vez.");
+  }));
+});
+
+/* ---------- lazo abierto ---------- */
+let tInt = null;
+function resetTimer(){ clearInterval(tInt); tInt = null; $("#timerV").textContent = "00:03"; $("#roomLight").className = "roomlight"; $("#roomLight").textContent = "luz apagada"; $("#timerBtn").disabled = false; }
+$("#timerBtn").addEventListener("click", () => {
+  let s = 3; $("#timerBtn").disabled = true;
+  tInt = setInterval(() => {
+    s--; $("#timerV").textContent = "00:0" + s;
+    if (s <= 0){ clearInterval(tInt); $("#roomLight").className = "roomlight on"; $("#roomLight").textContent = "luz encendida"; }
+  }, 1000);
+});
+$("#timerReset").addEventListener("click", resetTimer);
+
+/* ---------- lazo cerrado (termostato) ---------- */
+let temp = 16, setp = 21, heating = true;
+const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function drawTh(){
+  $("#thV").textContent = temp.toFixed(1) + " °C";
+  $("#thSetV").textContent = setp + " °C";
+  $("#thBar").style.width = ((temp-10)/20*100) + "%";
+  $("#thMark").style.left = ((setp-10)/20*100) + "%";
+  const h = $("#heat"); h.className = "pill " + (heating ? "on" : "off");
+  h.textContent = heating ? "CALEFACCIÓN ENCENDIDA" : "CALEFACCIÓN APAGADA";
+}
+$("#thSet").addEventListener("input", e => { setp = +e.target.value; drawTh(); });
+setInterval(() => {
+  heating = temp < setp;                    // el sensor mide y el controlador decide
+  temp += heating ? 0.4 : -0.2;             // la calefacción calienta; si está apagada, el ambiente se enfría
+  temp = Math.max(10, Math.min(30, temp));
+  drawTh();
+}, reduce ? 1500 : 500);
+drawTh();
+
+/* ---------- quiz final ---------- */
+buildQuiz($("#quiz"), [
+  {q:"¿Qué parte del sistema es “el cerebro”?", o:["El sensor","El controlador","El actuador"], a:1},
+  {q:"¿Qué hace una electroválvula?", o:["Mide la humedad","Abre o cierra el paso del agua","Ilumina"], a:1},
+  {q:"Un temporizador que enciende una luz es un sistema de…", o:["Lazo abierto","Lazo cerrado"], a:0, why:"Hace la acción sin comprobar el resultado."},
+  {q:"Un termostato que prende y apaga la calefacción según la temperatura es de…", o:["Lazo abierto","Lazo cerrado"], a:1, why:"Usa un sensor y adapta su funcionamiento."},
+  {q:"La alarma suena si se abre la puerta ___ si se rompe la ventana.", o:["Y","O"], a:1, why:"Alcanza con que pase una."},
+  {q:"¿Cuál es el orden correcto?", o:["Actuador → Controlador → Sensor","Sensor → Controlador → Actuador","Controlador → Sensor → Actuador"], a:1}
+], n => $("#score").textContent = n + " / 6");
+
+/* ---------- navegación activa ---------- */
+const links = [...document.querySelectorAll("#navlinks a")];
+const obs = new IntersectionObserver(es => es.forEach(e => {
+  if (e.isIntersecting){ links.forEach(a => a.classList.toggle("on", a.getAttribute("href") === "#"+e.target.id)); }
+}), {rootMargin:"-40% 0px -55% 0px"});
+document.querySelectorAll("#inicio, section.blk").forEach(s => obs.observe(s));
+
+</script>
